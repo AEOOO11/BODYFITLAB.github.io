@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BODYFIT LAB | 나만의 퍼스널 체형 & 골격 분석 연구소</title>
+  <meta name="description" content="AI 스마트 사진 랜드마크 측정과 10대 골격 자가진단으로 나의 체형(스트레이트, 웨이브, 내추럴)을 정밀 분석하고 베스트 코디와 넥라인, 소재 팁을 확인하세요." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+            }
+          },
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- TensorFlow.js & Pose Detection (OpenPose COCO 17-Keypoint Engine) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+  <!-- PWA & 모바일 앱(iOS / Android) 최적화 메타 태그 -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BODYFIT LAB" />
+  <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+
+  <!-- 커스텀 스타일시트 -->
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col selection:bg-rose-500 selection:text-white">
+
+  <!-- ================= 1. 상단 내비게이션 바 ================= -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- 브랜드 로고 -->
+      <div id="nav-logo" class="flex items-center gap-2.5 cursor-pointer group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-105 transition">
+          B
+        </div>
+        <div class="flex flex-col">
+          <span class="font-black text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+            BODYFIT<span class="text-rose-500 font-extrabold ml-0.5">LAB</span>
+          </span>
+          <span class="text-[10px] text-slate-400 font-medium tracking-wider -mt-1 uppercase">Personal Styling Lab</span>
+        </div>
+      </div>
+
+      <!-- 메뉴 링크 -->
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
+        <button id="nav-home" class="nav-link text-rose-500 font-bold hover:text-rose-600 dark:hover:text-rose-400 transition">홈</button>
+        <button id="nav-photo" class="nav-link text-slate-600 dark:text-slate-300 hover:text-rose-500 transition">스마트 사진 분석</button>
+        <button id="nav-quiz" class="nav-link text-slate-600 dark:text-slate-300 hover:text-rose-500 transition">골격 자가진단</button>
+        <button id="btn-open-guide" class="text-slate-600 dark:text-slate-300 hover:text-rose-500 transition flex items-center gap-1">
+          <span>골격진단 가이드</span>
+          <span class="px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Info</span>
+        </button>
+      </nav>
+
+      <!-- 우측 컨트롤 (다크모드 토글) -->
+      <div class="flex items-center gap-3">
+        <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" aria-label="테마 전환">
+          <!-- 달 아이콘 (라이트모드일 때 보임) -->
+          <svg class="w-4 h-4 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+          <!-- 해 아이콘 (다크모드일 때 보임) -->
+          <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        </button>
+
+        <button onclick="document.getElementById('nav-quiz').click()" class="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-500 to-indigo-600 hover:opacity-95 shadow-md shadow-rose-500/20 transition">
+          무료 진단 시작
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= 2. 메인 컨텐츠 영역 ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+
+    <!-- [VIEW 1] 홈 화면 -->
+    <section id="view-home" class="space-y-16 animate-fadeIn">
+      
+      <!-- 히어로 섹션 -->
+      <div class="text-center max-w-3xl mx-auto pt-4 sm:pt-10">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold mb-4 shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          2026 차세대 퍼스널 골격 & 체형 솔루션
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-tight sm:leading-none mb-6">
+          내 몸에 꼭 맞는 <span class="bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 bg-clip-text text-transparent">인생 핏</span>을<br class="hidden sm:inline" />
+          발견하는 가장 확실한 방법
+        </h1>
+
+        <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto mb-10">
+          키와 몸무게가 같아도 옷태가 완전히 다른 이유는 <strong>골격과 체형 비율</strong> 때문입니다. 
+          스마트 사진 측정과 정밀 자가진단으로 나만의 체형을 분석하고 쇼핑 실패를 제로로 만드세요.
+        </p>
+
+        <!-- 2대 분석 진입 카드 그리드 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-4xl mx-auto">
+          
+          <!-- 카드 1: 스마트 사진 랜드마크 분석 -->
+          <div id="hero-start-photo" class="group p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-200/80 dark:border-slate-800 hover:border-rose-500 dark:hover:border-rose-500 transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 cursor-pointer flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition"></div>
+            <div>
+              <div class="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center text-2xl mb-5 shadow-sm">
+                📸
+              </div>
+              <div class="inline-block px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950 text-rose-600 text-[11px] font-bold mb-2">
+                100% 로컬 보안 연산
+              </div>
+              <h3 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                스마트 사진 측정기
+              </h3>
+              <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                전신 정면 사진을 로드하거나 샘플 모델을 통해 어깨, 허리, 골반의 폭과 비율을 인터랙티브 핀으로 직접 정밀 측정합니다.
+              </p>
+            </div>
+            <div class="flex items-center text-sm font-bold text-rose-600 dark:text-rose-400 group-hover:translate-x-1 transition">
+              <span>사진으로 즉시 측정하기</span>
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </div>
+          </div>
+
+          <!-- 카드 2: 골격 3타입 정밀 자가진단 -->
+          <div id="hero-start-quiz" class="group p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-200/80 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 cursor-pointer flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition"></div>
+            <div>
+              <div class="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl mb-5 shadow-sm">
+                📋
+              </div>
+              <div class="inline-block px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 text-[11px] font-bold mb-2">
+                소요 시간 2분
+              </div>
+              <h3 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                골격 3타입 정밀 자가진단
+              </h3>
+              <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                쇄골, 손목 뼈, 가슴선, 살이 찌는 부위 등 10가지 핵심 신체 특징을 체크하여 스트레이트·웨이브·내추럴을 정밀 판별합니다.
+              </p>
+            </div>
+            <div class="flex items-center text-sm font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">
+              <span>설문으로 정밀 진단하기</span>
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- 골격 3타입 프리뷰 카드 섹션 -->
+      <div class="pt-8">
+        <div class="text-center max-w-xl mx-auto mb-10">
+          <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+            대표적인 골격 3대 유형
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2">
+            선천적인 뼈의 프레임과 피부 질감, 볼륨의 무게중심에 따라 나뉩니다.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- 스트레이트 -->
+          <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-3xl">👔</span>
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-600 border border-amber-200/50">I라인 실루엣</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white">스트레이트 (Straight)</h3>
+            <p class="text-xs text-rose-500 font-semibold mt-0.5">클래식 & 심플 럭셔리</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+              상체에 입체적인 볼륨감과 탄력이 있으며 중심이 높음. 군더더기 없이 각 잡힌 심플한 정장과 탄탄한 소재가 가장 완벽하게 어울림.
+            </p>
+          </div>
+
+          <!-- 웨이브 -->
+          <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-3xl">✨</span>
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-pink-50 dark:bg-pink-950/50 text-pink-600 border border-pink-200/50">X / A라인 실루엣</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white">웨이브 (Wave)</h3>
+            <p class="text-xs text-rose-500 font-semibold mt-0.5">페미닌 & 소프트 볼륨</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+              가녀린 상체와 선명한 쇄골, 부드러운 곡선미의 하체 발달. 얇고 부드러운 소재, 셔링 디테일 및 하이웨이스트로 비율을 극대화.
+            </p>
+          </div>
+
+          <!-- 내추럴 -->
+          <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-3xl">🌿</span>
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 border border-emerald-200/50">롱앤린 / Y라인 실루엣</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white">내추럴 (Natural)</h3>
+            <p class="text-xs text-rose-500 font-semibold mt-0.5">릴랙스드 & 스타일리시</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+              도드라진 관절과 탄탄한 뼈대 프레임의 모델형 실루엣. 루즈핏 오버사이즈, 롱 기장, 린넨/데님 등 자연 소재를 독보적으로 소화.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- [VIEW 2] 스마트 사진 랜드마크 분석 화면 -->
+    <section id="view-photo" class="hidden animate-fadeIn">
+      <div id="photo-analyzer-root"></div>
+    </section>
+
+    <!-- [VIEW 3] 골격 자가진단 퀴즈 화면 -->
+    <section id="view-quiz" class="hidden animate-fadeIn">
+      <div id="quiz-root"></div>
+    </section>
+
+    <!-- [VIEW 4] 종합 결과 리포트 화면 -->
+    <section id="view-result" class="hidden animate-fadeIn">
+      <div id="result-root"></div>
+    </section>
+
+  </main>
+
+  <!-- ================= 3. 골격진단 가이드 모달 ================= -->
+  <div id="guide-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">골격 진단(骨格診断)이란?</h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold p-1">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-4 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+        <p>
+          <strong>골격 진단</strong>은 개인의 타고난 <strong>뼈의 크기와 위치, 근육과 지방의 붙는 방식, 피부의 질감</strong>을 분석하여 자신에게 가장 조화롭고 슬림해 보이는 패션 아이템을 찾아내는 퍼스널 스타일링 분석 기법입니다.
+        </p>
+
+        <div class="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800">
+          <div class="font-bold text-slate-800 dark:text-white">💡 골격 진단의 3대 원칙:</div>
+          <ul class="list-disc list-inside space-y-1 text-slate-500 dark:text-slate-400">
+            <li>살이 찌거나 빠져도 기본적인 골격 프레임은 변하지 않습니다.</li>
+            <li>키나 체중과 무관하게 신체 무게중심(상체/하체)과 입체감이 다릅니다.</li>
+            <li>체형의 장점을 살리는 넥라인, 소재, 실루엣을 알면 2~3kg 더 날씬해 보입니다.</li>
+          </ul>
+        </div>
+
+        <p>
+          BODYFIT LAB에서는 3대 골격 진단(스트레이트/웨이브/내추럴)과 5대 기하학 바디 쉐입(모래시계/배형/역삼각형/직사각형/사과형)을 융합하여 가장 정밀하고 실용적인 스타일링 가이드를 제공합니다.
+        </p>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+        <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="px-5 py-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition">
+          닫기
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= 4. 하단 푸터 ================= -->
+  <footer class="mt-auto border-t border-slate-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-slate-950/50 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 space-y-2">
+      <div class="font-bold text-slate-700 dark:text-slate-300">BODYFIT LAB • 퍼스널 체형 & 골격 분석 연구소</div>
+      <p class="max-w-md mx-auto">
+        본 사이트에서 제공하는 진단 결과는 개인별 스타일링 참고용이며, 업로드된 사진은 서버로 전송되지 않습니다.
+      </p>
+      <div class="text-[11px] text-slate-400 pt-2">
+        © 2026 BODYFIT LAB. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- 메인 스크립트 (로컬 파일 더블클릭 및 웹서버 모두 지원) -->
+  <script src="./js/bundle.js"></script>
+
+  <!-- PWA 서비스 워커 자동 등록 (오프라인 캐싱 및 앱 실행 지원) -->
+  <script>
+    if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          console.log('PWA Service Worker registered:', reg.scope);
+        }).catch((err) => {
+          console.log('PWA Service Worker registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
